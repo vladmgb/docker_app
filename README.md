@@ -1,2 +1,3 @@
-# docker_app
-docker_app
+# Git репозиторий с тестовым приложением и Dockerfile
+
+Git репозиторий с тестовым приложением и Dockerfile
