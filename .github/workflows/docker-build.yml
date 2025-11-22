@@ -47,15 +47,17 @@ jobs:
           git commit -m "Deploy ${{ github.ref_name }}"
           git push
           
-      - name: Deploy to Kubernetes
+      - name: Setup YC CLI
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        uses: yc-actions/yc-cli-setup@v1
+        
+      - name: Configure YC CLI
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
-          # Создаем kubeconfig из секрета
-          echo '${{ secrets.KUBECONFIG }}' > kubeconfig.yaml
+          yc config set token ${{ secrets.YC_TOKEN }}
           
-          # Применяем манифест
-          kubectl apply -f application/deployment-app.yaml --kubeconfig=kubeconfig.yaml
-          
-          # Проверяем деплой
-          kubectl get pods -n application --kubeconfig=kubeconfig.yaml
-          kubectl get services -n application --kubeconfig=kubeconfig.yaml
+      - name: Get kubeconfig and deploy
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        run: |
+          yc k8s cluster get-credentials ${{ secrets.YC_CLUSTER_ID }} --external
+          kubectl apply -f application/deployment-app.yaml
