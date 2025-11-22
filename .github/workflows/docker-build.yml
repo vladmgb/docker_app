@@ -50,10 +50,19 @@ jobs:
       - name: Setup YC CLI and deploy
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
-          curl -s https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
-          export PATH=$HOME/yandex-cloud/bin:$PATH
-          source ~/.bashrc
-          yc --version          
+          # Скачиваем YC CLI напрямую
+          wget -q https://storage.yandexcloud.net/yandexcloud-yc/release/0.176.0/linux/amd64/yc
+          chmod +x yc
+          sudo mv yc /usr/local/bin/
+          
+          # Проверяем установку
+          yc --version
+          
+          # Аутентифицируемся в Yandex Cloud
           yc config set token ${{ secrets.YC_TOKEN }}
+          
+          # Получаем kubeconfig для кластера
           yc k8s cluster get-credentials ${{ secrets.YC_CLUSTER_ID }} --external
+          
+          # Применяем манифест
           kubectl apply -f application/deployment-app.yaml
