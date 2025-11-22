@@ -1,0 +1,20 @@
+name: Docker Build & Push
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - run: |
+          IMAGE=${{ secrets.DOCKER_USERNAME }}/docker-app
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG=${{ github.ref_name }}
+          else
+            TAG=latest
+          fi
+          docker build -t $IMAGE:$TAG .
+          docker push $IMAGE:$TAG
