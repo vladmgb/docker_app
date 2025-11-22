@@ -3,46 +3,47 @@ name: Build and Deploy
 on:
   push:
     branches: [ main ]
-    tags:
-      - '*'
+    tags: [ '*' ]
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout app code
         uses: actions/checkout@v4
-        
+
       - name: Build and push Docker image
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+          if [ "${{ github.ref_type }}" = "tag" ]; then
             TAG="${{ github.ref_name }}"
           else
             TAG="latest"
           fi
-          
-          echo "Building image with tag: $TAG"
+
+          echo "TAG chosen: $TAG"
+
           docker build -t ${{ secrets.DOCKER_USERNAME }}/docker-app:$TAG .
           docker push ${{ secrets.DOCKER_USERNAME }}/docker-app:$TAG
 
       - name: Checkout config repo
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+        if: github.ref_type == 'tag'
         uses: actions/checkout@v4
         with:
           repository: vladmgb/kuber_config
           token: ${{ secrets.PAT }}
           path: config
-          
-      - name: Update image version
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+
+      - name: Update image version in deployment
+        if: github.ref_type == 'tag'
         run: |
           sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/docker-app:.*|image: ${{ secrets.DOCKER_USERNAME }}/docker-app:${{ github.ref_name }}|" config/application/deployment-app.yaml
 
-      - name: Commit changes
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+      - name: Commit and push manifest update
+        if: github.ref_type == 'tag'
         run: |
           cd config
           git config user.name "GitHub Actions"
@@ -52,16 +53,19 @@ jobs:
           git push
 
       - name: Setup YC CLI
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+        if: github.ref_type == 'tag'
         run: |
           curl -s https://storage.yandexcloud.net/yandexcloud-yc/install.sh | sudo bash -s -- -i /usr/local -n
           echo "/usr/local/yandex-cloud/bin" >> $GITHUB_PATH
+          echo "${{ secrets.YC_SA_KEY }}" > sa.json
+          yc config set service-account-key sa.json
+          yc config set cloud-id ${{ secrets.YC_CLOUD_ID }}
+          yc config set folder-id ${{ secrets.YC_FOLDER_ID }}
           yc --version
-        
-      - name: Deploy
-        if: github.event_name == 'push' && github.ref_type == 'tag'
+
+      - name: Deploy to Yandex Kubernetes
+        if: github.ref_type == 'tag'
         run: |
-          yc config set token "${{ secrets.YC_TOKEN }}"
           yc k8s cluster get-credentials "${{ secrets.YC_CLUSTER_ID }}" --external
           kubectl apply -f config/application/deployment-app.yaml
-          kubectl get pods -n application
+          kubectl rollout status deployment/app-deployment -n application
