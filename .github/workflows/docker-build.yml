@@ -49,15 +49,14 @@ jobs:
           
       - name: Setup YC CLI
         if: github.event_name == 'push' && github.ref_type == 'tag'
-        uses: yc-actions/yc-cli-setup@v1
+          curl -s https://storage.yandexcloud.net/yandexcloud-yc/install.sh | sudo bash -s -- -i /usr/local -n
+          which yc
+          yc --version
         
-      - name: Configure YC CLI
+      - name: Deploy
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
           yc config set token ${{ secrets.YC_TOKEN }}
-          
-      - name: Get kubeconfig and deploy
-        if: github.event_name == 'push' && github.ref_type == 'tag'
-        run: |
           yc k8s cluster get-credentials ${{ secrets.YC_CLUSTER_ID }} --external
           kubectl apply -f application/deployment-app.yaml
+          kubectl get pods -n application
