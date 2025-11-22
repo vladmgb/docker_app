@@ -50,12 +50,10 @@ jobs:
       - name: Setup YC CLI and deploy
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
-         
           curl -s https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          export PATH=$HOME/yandex-cloud/bin:$PATH
           source ~/.bashrc
-          
+          yc --version          
           yc config set token ${{ secrets.YC_TOKEN }}
-          
           yc k8s cluster get-credentials ${{ secrets.YC_CLUSTER_ID }} --external
-          
           kubectl apply -f application/deployment-app.yaml
