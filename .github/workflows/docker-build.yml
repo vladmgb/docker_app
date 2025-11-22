@@ -16,9 +16,7 @@ jobs:
         run: |
           echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           
-          # Определяем тег в зависимости от типа события
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref_type }}" = "tag" ]; then
-           
             TAG="${{ github.ref_name }}"
           else
             TAG="latest"
@@ -28,14 +26,14 @@ jobs:
           docker build -t ${{ secrets.DOCKER_USERNAME }}/docker-app:$TAG .
           docker push ${{ secrets.DOCKER_USERNAME }}/docker-app:$TAG
 
-      - name: Update app deployment manifest
+      - name: Update deployment manifest
         if: github.event_name == 'push' && github.ref_type == 'tag'
         uses: actions/checkout@v4
         with:
           repository: vladmgb/kuber_config
           token: ${{ secrets.PAT }}
           
-      - name: Update app image version
+      - name: Update image version
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
           sed -i "s|image: ${{ secrets.DOCKER_USERNAME }}/docker-app|image: ${{ secrets.DOCKER_USERNAME }}/docker-app:${{ github.ref_name }}|g" application/deployment-app.yaml
@@ -49,9 +47,15 @@ jobs:
           git commit -m "Deploy ${{ github.ref_name }}"
           git push
           
-      - name: Deploy app to Kubernetes
+      - name: Setup YC CLI and deploy
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+         
+          curl -s https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash
+          source ~/.bashrc
+          
+          yc config set token ${{ secrets.YC_TOKEN }}
+          
+          yc k8s cluster get-credentials ${{ secrets.YC_CLUSTER_ID }} --external
+          
           kubectl apply -f application/deployment-app.yaml
