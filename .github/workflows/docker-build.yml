@@ -47,22 +47,15 @@ jobs:
           git commit -m "Deploy ${{ github.ref_name }}"
           git push
           
-      - name: Setup YC CLI and deploy
+      - name: Deploy to Kubernetes
         if: github.event_name == 'push' && github.ref_type == 'tag'
         run: |
-          # Скачиваем YC CLI напрямую
-          wget -q https://storage.yandexcloud.net/yandexcloud-yc/release/0.176.0/linux/amd64/yc
-          chmod +x yc
-          sudo mv yc /usr/local/bin/
-          
-          # Проверяем установку
-          yc --version
-          
-          # Аутентифицируемся в Yandex Cloud
-          yc config set token ${{ secrets.YC_TOKEN }}
-          
-          # Получаем kubeconfig для кластера
-          yc k8s cluster get-credentials ${{ secrets.YC_CLUSTER_ID }} --external
+          # Создаем kubeconfig из секрета
+          echo '${{ secrets.KUBECONFIG }}' > kubeconfig.yaml
           
           # Применяем манифест
-          kubectl apply -f application/deployment-app.yaml
+          kubectl apply -f application/deployment-app.yaml --kubeconfig=kubeconfig.yaml
+          
+          # Проверяем деплой
+          kubectl get pods -n application --kubeconfig=kubeconfig.yaml
+          kubectl get services -n application --kubeconfig=kubeconfig.yaml
