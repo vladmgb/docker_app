@@ -61,6 +61,8 @@ jobs:
 
           # decode service account key
           echo "${{ secrets.YC_SA_KEY }}" | base64 --decode > sa.json
+          ls -la sa.json
+          cat sa.json | head -20 # для отладки можно временно оставить; ключи замаскированы
 
           # auth
           yc config set service-account-key sa.json
