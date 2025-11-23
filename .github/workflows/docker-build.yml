@@ -61,8 +61,8 @@ jobs:
 
           # decode service account key
           echo "${{ secrets.YC_SA_KEY }}" | base64 --decode > sa.json
-          ls -la sa.json
-          cat sa.json | head -20 # для отладки можно временно оставить; ключи замаскированы
+          # ls -la sa.json
+          # cat sa.json | head -20 # для отладки можно временно оставить; ключи замаскированы
 
           # auth
           yc config set service-account-key sa.json
@@ -75,4 +75,4 @@ jobs:
         run: |
           yc k8s cluster get-credentials "${{ secrets.YC_CLUSTER_ID }}" --external
           kubectl apply -f config/application/deployment-app.yaml
-          kubectl rollout status deployment/app-deployment -n application
+          kubectl rollout status deployment/nginx-app -n application
